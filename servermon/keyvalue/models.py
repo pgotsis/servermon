@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -17,15 +17,18 @@
 '''
 keyvalue module's documentation.
 Each keyvalue has three items.
-1. An owner which must be an instance of a django model
-2. A key, which must be an instance of keyvalue.models.Key
-3. A value, which is a charfield
+ 1. An owner which must be an instance of a django model
+ 2. A key, which must be an instance of keyvalue.models.Key
+ 3. A value, which is a charfield
 '''
 
 from django.db import models
+from django.utils.encoding import python_2_unicode_compatible
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
+
+@python_2_unicode_compatible
 class Key(models.Model):
     '''
     The key part of the key value pair
@@ -35,7 +38,7 @@ class Key(models.Model):
     verbose_name = models.CharField(max_length=100, blank=True, help_text='Human readable version of the name')
     description = models.CharField(max_length=150, blank=True, help_text='Description of what this key represents')
 
-    def __unicode__(self):
+    def __str__(self):
         if self.description != u'':
             return u'%s - %s' % (self.name, self.description)
         return u'%s' % (self.name)
@@ -48,6 +51,8 @@ class Key(models.Model):
             self.verbose_name = verbose_name.replace('.', ' ')
         super(Key, self).save(*args, **kwargs)
 
+
+@python_2_unicode_compatible
 class KeyValue(models.Model):
     '''
     Attach a key and a value to any instance of any django model.
@@ -79,6 +84,9 @@ class KeyValue(models.Model):
     def owner(self):
         return self.owner_content_object
 
-    def __unicode__(self):
-        res = u'%s = %s' % (self.key.name, self.value)
+    def __str__(self):
+        res = u'%s = %s on %s' % (
+            self.key.name,
+            self.value,
+            self.owner_content_object)
         return res

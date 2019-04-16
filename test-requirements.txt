@@ -1,4 +1,13 @@
-flake8
+whoosh
+ipy
+python-ldap
+flake8==3.0.4
 epydoc
 sphinx
 pysqlite
+mock<1.1.0
+mockldap
+coverage
+coveralls
+mysqlclient==1.3.13
+psycopg2>=2.7.0

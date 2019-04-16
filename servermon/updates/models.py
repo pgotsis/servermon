@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -18,11 +18,13 @@
 updates module's functions documentation. Main models are Package and Update
 '''
 
-
+from django.utils.encoding import python_2_unicode_compatible
 from django.db import models
-from servermon.puppet.models import Host
+from puppet.models import Host
 import re
 
+
+@python_2_unicode_compatible
 class Package(models.Model):
     '''
     A Debian package
@@ -35,12 +37,14 @@ class Package(models.Model):
     class Meta:
         ordering = ('name', )
 
-    def __unicode__(self):
+    def __str__(self):
         if self.name == self.sourcename:
             return self.name
         else:
             return "%s (%s)" % (self.name, self.sourcename)
 
+
+@python_2_unicode_compatible
 class Update(models.Model):
     '''
     Modeling a potential update to a package
@@ -54,7 +58,7 @@ class Update(models.Model):
     origin = models.CharField(max_length=200, null=True)
     is_security = models.BooleanField(default=False)
 
-    def __unicode__(self):
+    def __str__(self):
         '''
         Returns the objects unicode representation
         '''
@@ -77,5 +81,5 @@ class Update(models.Model):
             'initial': self.package.sourcename[0],
             'source': self.package.sourcename,
             'version': re.sub(r'[0-9]+:', '', self.candidateVersion),
-            'slug': self.candidateVersion.replace('+','_')
+            'slug': self.candidateVersion.replace('+', '_')
         }

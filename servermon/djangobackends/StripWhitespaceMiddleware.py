@@ -1,4 +1,4 @@
-"""
+'''
 Tightens up response content by removed superflous line breaks and whitespace.
 By Doug Van Horn
 
@@ -12,9 +12,15 @@ Modified regex to strip leading/trailing white space from every line, not just t
 
 Shamelessly stolen code from:
 https://code.djangoproject.com/wiki/StripWhitespaceMiddleware
-"""
+'''
 
 import re
+from django import VERSION as DJANGO_VERSION
+if DJANGO_VERSION[:2] >= (1, 5):
+    from django.http.response import HttpResponseNotModified
+else:
+    from django.http import HttpResponseNotModified
+
 
 class StripWhitespaceMiddleware(object):
     """
@@ -26,16 +32,25 @@ class StripWhitespaceMiddleware(object):
         self.whitespace_lead = re.compile('^\s+', re.MULTILINE)
         self.whitespace_trail = re.compile('\s+$', re.MULTILINE)
 
-
     def process_response(self, request, response):
-        if "text/plain" in response['Content-Type']:
+        # HttpResponseNotModified does not have a Content-Type header.
+        # See https://code.djangoproject.com/ticket/11340
+        if isinstance(response, HttpResponseNotModified):
+            return response
+        if 'text/plain' in response['Content-Type']:
+            # We need to convert to str to use regex in python3
+            # Note we assume here the encoding is going to be utf8
+            c = response.content.decode('utf8')
             if hasattr(self, 'whitespace_lead'):
-                response.content = self.whitespace_lead.sub('', response.content)
+                c = self.whitespace_lead.sub('', c)
             if hasattr(self, 'whitespace_trail'):
-                response.content = self.whitespace_trail.sub('\n', response.content)
+                c = self.whitespace_trail.sub('\n', c)
             # Uncomment the next line to remove empty lines
             if hasattr(self, 'whitespace'):
-                response.content = self.whitespace.sub('', response.content)
+                c = self.whitespace.sub('', c)
+            # And back to a bytes object
+            c = c.encode('utf8')
+            response.content = c
             return response
         else:
-            return response   
+            return response

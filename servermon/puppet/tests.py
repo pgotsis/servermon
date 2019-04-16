@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -18,28 +18,23 @@
 Unit tests for puppet package
 '''
 
-from django import VERSION as DJANGO_VERSION
-
-if DJANGO_VERSION[:2] >= (1, 3):
-    from django.utils import unittest
-else:
-    import unittest
-
 from django.test.client import Client
-from puppet.models import Fact, Host, FactValue, ParamNames, ParamValues, PuppetTags, \
-                    ResourceTags, SourceFile, Resource
+from django.utils import unittest
+from puppet.models import Fact, Host, FactValue, ParamNames, \
+    ParamValues, PuppetTags, ResourceTags, SourceFile, Resource
 
 # The following is an ugly hack for unit tests to work
 # We force managed the unmanaged models so that tables will be created
-Fact._meta.managed=True
-Host._meta.managed=True
-FactValue._meta.managed=True
-ParamNames._meta.managed=True
-ParamValues._meta.managed=True
-PuppetTags._meta.managed=True
-ResourceTags._meta.managed=True
-SourceFile._meta.managed=True
-Resource._meta.managed=True
+Fact._meta.managed = True
+Host._meta.managed = True
+FactValue._meta.managed = True
+ParamNames._meta.managed = True
+ParamValues._meta.managed = True
+PuppetTags._meta.managed = True
+ResourceTags._meta.managed = True
+SourceFile._meta.managed = True
+Resource._meta.managed = True
+
 
 class PuppetTestCase(unittest.TestCase):
     '''
@@ -80,6 +75,7 @@ class PuppetTestCase(unittest.TestCase):
     def test_if_fact_equal_with_self(self):
         self.assertEqual(self.factv1.name, self.factv1.fact_name.name)
 
+
 class PuppetViewsTestCase(unittest.TestCase):
     '''
     A test case for servermon package
@@ -90,8 +86,8 @@ class PuppetViewsTestCase(unittest.TestCase):
         '''
         self.host1 = Host.objects.create(name='testservermonHost1', ip='10.10.10.10')
         self.host2 = Host.objects.create(name='testservermonHost2', ip='10.10.10.10')
-        self.fact1 = Fact.objects.create(name='TestFact1')
-        self.fact2 = Fact.objects.create(name='TestFact2')
+        self.fact1 = Fact.objects.create(name='memorysize')
+        self.fact2 = Fact.objects.create(name='manufacturer')
         self.factv1 = FactValue.objects.create(value='TestFactValue1', fact_name=self.fact1, host=self.host1)
         self.factv2 = FactValue.objects.create(value='TestFactValue2', fact_name=self.fact2, host=self.host2)
 
@@ -102,7 +98,6 @@ class PuppetViewsTestCase(unittest.TestCase):
         Host.objects.all().delete()
         Fact.objects.all().delete()
         FactValue.objects.all().delete()
-
 
     def test_inventory(self):
         c = Client()

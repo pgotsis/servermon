@@ -1,13 +1,29 @@
 servermon
 =========
 
+.. image:: https://travis-ci.org/servermon/servermon.svg?branch=master
+    :target: https://travis-ci.org/servermon/servermon
+    :alt: Build Status
+
+.. image:: https://readthedocs.org/projects/servermon/badge/?version=latest
+    :target: https://readthedocs.org/projects/servermon/
+    :alt: Documentation Status
+
+.. image:: https://coveralls.io/repos/servermon/servermon/badge.svg?branch=master&service=github
+   :target: https://coveralls.io/github/servermon/servermon?branch=master
+   :alt: Code Coverage Status
+
+.. image:: https://img.shields.io/badge/license-ISC-green.svg
+   :target: https://github.com/servermon/servermon/blob/master/COPYING
+   :alt: License
+
 Servermon is a Django project with the aim of facilitating server monitoring
 and management through Puppet.
 
 Servermon at this point offers two applications
 
 1) A Web frontend to the Puppet database.
-2) hwodc: A simple datacenter hardware documentation database
+2) hwdoc: A simple datacenter hardware documentation database
 
 If you have no idea what Puppet is, it is possible that you don't need
 this software. Do note however that hwdoc will still be usable even
@@ -16,8 +32,8 @@ without a Puppet infrastructure
 Compatibility
 =============
 
-As of October 2013, we mosty support Django 1.4. Django 1.5 or later is NOT
-supported.
+For an up to date list of the Django version we support, take a look into
+requirements.txt. Those are the version tested and developed for
 
 Install
 =======
@@ -36,6 +52,7 @@ See doc/install.rst for details.
 
     ./manage.py syncdb
     ./manage.py migrate
+    ./manage.py collectstatic
 
 Run!
 
@@ -50,3 +67,8 @@ Documentation
 
 The documentation is maintained using Sphinx (under /doc/) and is automatically
 generated at https://servermon.readthedocs.org/.
+
+Demo
+====
+
+Demo at http://servermon.herokuapp.com

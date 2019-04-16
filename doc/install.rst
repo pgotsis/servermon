@@ -1,7 +1,7 @@
 Servermon installation tutorial
 ===============================
 
-Documents Servermon version 0.6.1
+Documents Servermon version 0.7.0
 
 .. contents::
 
@@ -34,7 +34,7 @@ the corresponding sections.
 Servermon at this point offers two applications
 
 1) A Web frontend to the Puppet database.
-2) hwodc: A simple datacenter hardware documentation database
+2) hwdoc: A simple datacenter hardware documentation database
 
 If you have no idea what Puppet is, it is possible that you don't need
 this software. Do note however that hwdoc will still be usable even
@@ -66,21 +66,40 @@ Installing the software
 
 **Mandatory**.
 
-Python, Django, South is needed::
+Python, Django. South is required if using Django < 1.7
 
-  $ aptitude install python-django
-  $ aptitude install python-django-south
-  $ aptitude install python-whoosh
-  $ aptitude install python-ipy
-  $ aptitude install python-mysqldb (or sqlite or psycopg2)
-  $ aptitude install python-ldap (for user authentication via LDAP)
+Use system provided packages::
+
+  $ apt-get install python-django
+  $ apt-get install python-django-south
+  $ apt-get install python-whoosh
+  $ apt-get install python-ipy
+  $ apt-get install python-mysqldb (or sqlite or psycopg2)
+  $ apt-get install python-ldap (for user authentication via LDAP)
+
+Installation using pip::
+
+  $ pip install -r requirements.txt
+
+But be prepared for some compilations
+
+Deploy the software::
+
   $ mkdir /path/to/servermon
   $ tar xfvz servermon-X.Y.tar.gz -C /path/to/servermon
 
-A Puppet infrastructure with an RDBMS (MySQL, PostgreSQL) is needed for
-everything else apart from hwdoc
+A Puppet infrastructure with an active record RDBMS (MySQL, PostgreSQL) is
+needed for everything else apart from hwdoc. SQLite can be used in
+development. Postgresql tests run on 10.1
 
-An application server. Gunicorn should work, apache+mod_wsgi works, django runserver works
+An application server is required, at least for production. gunicorn is
+fine, apache+mod_wsgi is fine, uwsgi should be fine. In development
+django's builtin runserver is fine as well (but don't use it in
+production)
+
+For optional Jira ticketing interaction::
+
+  $ pip install jira
 
 Setting up the environment for Servermon
 ----------------------------------------
@@ -94,17 +113,25 @@ tables etc. So a temporary GRANT ALL will be needed which later can be
 dropped
 
 Temporarily provide full access to the app::
+
   mysql> grant all privileges on puppet.* to 'servermon'@'example.com';
 
 After installation is completed remember to revoke that::
+
   mysql> revoke all privileges on puppet.* from 'servermon'@'example.com';
   mysql> grant select on puppet.* to 'servermon'@'example.com';
 
-If you intend to also use hwdoc then you need to also::
+If you intend to use hwdoc then you need to also::
+
   mysql> grant update,insert,delete on puppet.* to 'servermon'@'example.com';
 
-Configuring urls.py
-+++++++++++++++++++
+If you follow a different procedure like installing servermon on a
+separate db from Puppet the above instructions must be modified
+accordingly (having servermon on a separate db could be useful if, for
+example, you are replicating the puppet db from a master elsewhere).
+
+Configuring app servers
++++++++++++++++++++++++
 
 **Mandatory**.
 
@@ -112,14 +139,24 @@ Configure web server::
 
         TODO: To be written
 
-For most cases a::
+If you are installing the software at the same VirtualHost with some other
+software urls.py may need changes depending on the top url.
 
-  $ cd /path/to/servermon
-  $ cp urls.py.dist urls.py
+Setting up cron for package updates display
++++++++++++++++++++++++++++++++++++++++++++
 
-should be sufficient. However if you are installing the software at the
-same VirtualHost with some other software the above file may need
-changes depending on the top url.
+You probably want the list of updatable packages to be updated with all
+the new info. This needs a cron entry
+
+This should probably tuned to each user's installation. Assuming an
+installation in to /srv/servermon the following line is sufficient
+in a crontab::
+
+  0 0 * * * <user> /srv/servermon/servermon/manage.py make_updates
+
+where user is a valid system user capable of reading the configuration.
+root will work, but it is doubtfull it is a good choice. A dedicated
+user is probably safer. Note the double servermon path above
 
 Configuring settings.py
 +++++++++++++++++++++++
@@ -128,7 +165,8 @@ Configuring settings.py
 
 First you need to copy settings.py.dist::
 
-  $ cp /path/to/servermon
+  $ cp /path/to/servermon/
+  $ cd servermon/servermon
   $ cp settings.py.dist settings.py
 
 Then you need to configure the project. Things to pay attention to::
@@ -136,13 +174,13 @@ Then you need to configure the project. Things to pay attention to::
   DEBUG = False when in production
   DATABASES => Fill it with needed info
   TIME_ZONE => If you care about correct timestamps
-  MEDIA_URL => Pretty self explanatory
-  STATIC_URL => (static media directory)
-  LDAP_AUTH_SETTINGS => if any
-  TEMPLATE_DIRS => at least '/path/to/servermon/templates' needed
+  STATIC_URL => static URL path, defaults to /static
+  STATIC_ROOT => where static data will reside on the filesystem, if autodiscovery does not suit you
+  LDAP_AUTH_SETTINGS => if any, fill in respectively
+  TEMPLATE_DIRS => if autodiscovery does not work use '/path/to/servermon/servermon/templates'
   INSTALLED_APPS => (uncomment needed apps). django admin apps are a must for hwdoc
   AUTHENTICATION_BACKENDS = > comment or uncomment
-      'servermon.djangobackends.ldapBackend.ldapBackend',
+      'djangobackends.ldapBackend.ldapBackend',
       depending on whether you want LDAP user authentication or not
 
 Create database tables
@@ -153,15 +191,25 @@ Create standard Django tables::
 
 to create all the necessary tables in the database.
 
-Create application tables using south migrations::
+Create application tables using migrations::
 
 	./manage.py migrate
 
+Collect staticfiles in one place::
+
+	./manage.py collectstatic
+
 Load initial data
 +++++++++++++++++
-Optionally load vendor and model data::
+Load vendor and model data::
 
 	./manage.py loaddata vendor-model
+
+Load dummy data if developing
++++++++++++++++++++++++++++++
+Load dummy data if developing::
+
+	./manage.py loaddata sampledata
 
 Test run
 ++++++++
@@ -179,13 +227,13 @@ be able to easily search and  visualize equipments with open tickets.
 This is accomplished through a 'caching' layer in the database, where
 tickets are stored and their relationship to equipments. The system
 allows for vendor specific plugins for each ticketing system. To select
-you ticketing system edit settings.py and set::
+your ticketing system edit settings.py and set::
 
-  TICKETING_SYSTEM = 'dummy' # dummy, comments are possible values
+  TICKETING_SYSTEM = 'dummy' # dummy, comments, jira are possible values
 
 And then the configuration for you chosen ticketing system.
 
-For the comments ticketing system a single. Tickets are assumed to have
+For the "comments" ticketing system, tickets are assumed to have
 URLs in the form COMMENTS_TICKETING_URL/ticket_id
 
 In order to populate and update tickets a cron job running a django
@@ -197,15 +245,17 @@ This should probably tuned to each user's installation. Assuming an
 installation in to /srv/servermon the following line might be
 sufficient in a crontab::
 
-  0 0 * * * user /srv/servermon/manage.py hwdoc_populate_tickets --pythonpath=/srv/servermon ALL_EQS
+  0 0 * * * <user> /srv/servermon/servermon/manage.py hwdoc_populate_tickets ALL_EQS
 
-where user is a valid system user capable of reading (root will work,
-depending on your installation it might be a good choice, or not)
+where user is a valid system user capable of reading the configuration.
+root will work, but it is doubtfull it is a good choice. A dedicated
+user is probably safer. The same use as for the make_updates command
+should be sufficient. Note the double servermon path above
 
 Branding
 ++++++++
 
-Inside the static folder you will find the standard django logo. Change it with
+Inside the servermon/static folder you will find the standard django logo. Change it with
 your organization's if you wish
 
 Further steps

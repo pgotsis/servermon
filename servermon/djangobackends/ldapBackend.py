@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -19,11 +19,13 @@ Backend to provide LDAP authentication
 '''
 
 import ldap
+import ldap.filter
 
-from django.contrib.auth.models import User, UserManager, Permission, Group
+from django.contrib.auth.models import User, Group
 from django.conf import settings
 
-class ldapBackend:
+
+class ldapBackend(object):
     def authenticate(self, username=None, password=None):
 
         ldap_settings = settings.LDAP_AUTH_SETTINGS
@@ -48,11 +50,11 @@ class ldapBackend:
     def _auth_user(self, base, username, password, l):
 
         scope = ldap.SCOPE_SUBTREE
-        filter = "uid=" + username
+        f = "(uid=%s)" % ldap.filter.escape_filter_chars(username, escape_mode=0)
         ret = ['dn', 'mail', 'givenName', 'sn']
         try:
-            result_id = l.search(base, scope, filter, ret)
-            result_type, result_data = l.result(result_id, 0)
+            result_id = l.search(base, scope, f, ret)
+            _, result_data = l.result(result_id, 0)
 
             # If the user does not exist in LDAP, Fail.
             if (len(result_data) != 1):
@@ -67,31 +69,35 @@ class ldapBackend:
 
             # Corner case here with users not having a mail attribute
             if 'mail' not in result_data[0][1]:
-                result_data[0][1]['mail'] = ['',]
+                result_data[0][1]['mail'] = ['', ]
 
             # The user existed and authenticated. Get the user
             # record or create one with no privileges.
             try:
                 user = User.objects.get(username__exact=username)
                 user.email = result_data[0][1]['mail'][0]
-                user.first_name = result_data[0][1]['givenName'][0]
-                user.last_name = result_data[0][1]['sn'][0]
-                user.is_active = True
-                user.save()
-            except:
+            except (User.DoesNotExist, KeyError, IndexError):
                 user = User.objects.create_user(username, result_data[0][1]['mail'][0], None)
-                user.first_name = result_data[0][1]['givenName'][0]
-                user.last_name = result_data[0][1]['sn'][0]
                 user.is_staff = settings.LDAP_AUTH_IS_STAFF
                 user.is_superuser = False
-                user.is_active = True
-                if settings.LDAP_AUTH_GROUP:
+                if hasattr(settings, 'LDAP_AUTH_GROUP'):
                     try:
                         g = Group.objects.get(name=settings.LDAP_AUTH_GROUP)
                         user.groups.add(g)
-                        user.save()
-                    except:
+                    except Group.DoesNotExist:
                         pass
+            # Whatever the result of the two above, sync up non autorization
+            # data from LDAP to django
+            try:
+                user.first_name = result_data[0][1]['givenName'][0]
+                user.last_name = result_data[0][1]['sn'][0]
+            except KeyError:
+                # TODO: Log this
+                print('User has no givenName or sn attributes specified in LDAP')
+                return None
+
+            user.is_active = True
+            user.save()
             return user
 
         except ldap.INVALID_CREDENTIALS:

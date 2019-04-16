@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -18,16 +18,13 @@
 Unit tests for keyvalue package
 '''
 
-from django import VERSION as DJANGO_VERSION
-
-if DJANGO_VERSION[:2] >= (1, 3):
-    from django.utils import unittest
-else:
-    import unittest
-
+from django.contrib.auth.models import User
+from django.test.client import Client
+from django.utils import unittest
 from keyvalue.models import Key, KeyValue
 
-class KeyTest(unittest.TestCase):
+
+class KeyTestCase(unittest.TestCase):
     def setUp(self):
         # We need a Model instance as an owner
         self.owner = Key.objects.create(name='Owner')
@@ -51,15 +48,13 @@ class KeyTest(unittest.TestCase):
         self.owner.delete()
 
     def test_key(self):
-        # Make sure all 5 keys were created
-        self.assertEqual(Key.objects.all().count(), 5)
         # Do a quick match on the first Key created
-        self.assertEqual(self.key1, Key.objects.get(id=2))
+        self.assertEqual(self.key1, Key.objects.get(name='Key1'))
         # Test name field on Key
         self.assertEqual(self.key1.name, 'Key1')
-        # Test __unicode__ method on Key without description
+        # Test __str__ method on Key without description
         self.assertEqual(str(self.key1), 'Key1')
-        # Test __unicode__ method on Key with description
+        # Test __str__ method on Key with description
         self.assertEqual(str(self.key2), 'Key2 - Key 2')
 
     def test_keyvalue(self):
@@ -68,3 +63,39 @@ class KeyTest(unittest.TestCase):
         self.assertEqual(self.keyvalue.description, '')
         self.assertEqual(self.keyvalue.value, 'Yo')
         self.assertEqual(self.keyvalue.owner, self.owner)
+        # Test __str__ method on KeyValue
+        self.assertEqual(str(self.keyvalue), 'Key1 = Yo on Owner')
+
+
+class AdminViewsTestCase(unittest.TestCase):
+    '''
+    Testing admin views class
+    '''
+
+    def setUp(self):
+        '''
+        Command run before every test
+        '''
+        self.u1 = User.objects.create(username='test1', email='test1@example.com',
+                                      is_staff=True, is_superuser=True)
+        self.u1.set_password('test')
+        self.u1.save()
+        self.c1 = Client()
+        self.assertTrue(self.c1.login(username='test1', password='test'))
+        self.key1 = Key.objects.create(name='Key1')
+
+    def tearDown(self):
+        '''
+        Command run after every test
+        '''
+        self.key1.delete()
+        self.c1.logout()
+        User.objects.all().delete()
+
+    def test_admin_keyvalue(self):
+        response = self.c1.get('/admin/keyvalue/key/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_keyvalue1(self):
+        response = self.c1.get('/admin/keyvalue/key/%s/' % self.key1.id)
+        self.assertEqual(response.status_code, 200)

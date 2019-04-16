@@ -9,9 +9,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -22,10 +22,11 @@ CLI utility to get package update and print them in XML format
 
 
 from socket import getfqdn
+from xml.dom.minidom import Document
+import apt
 import warnings
 warnings.filterwarnings('ignore')
-import apt
-from xml.dom.minidom import Document
+
 
 # shamelessly stolen from /usr/lib/update-notifier/apt_check.py ported/modified
 def isSecurityUpgrade(candidate):
@@ -35,13 +36,13 @@ def isSecurityUpgrade(candidate):
 
     for origin in candidate.origins:
         if (origin.origin == "Debian" and
-            (origin.label == "Debian-Security" or origin.site == "security.debian.org")):
+           (origin.label == "Debian-Security" or origin.site == "security.debian.org")):
             return True
 
-        if (origin.origin == "Ubuntu" and
-            origin.archive.endswith('-security')):
+        if origin.origin == "Ubuntu" and origin.archive.endswith('-security'):
             return True
     return False
+
 
 def getUpdates():
     '''
@@ -78,7 +79,8 @@ def getUpdates():
 
         host.appendChild(u)
 
-    return doc.toxml().replace('\n','')
+    return doc.toxml().replace('\n', '')
+
 
 if __name__ == '__main__':
-    print getUpdates()
+    print(getUpdates())

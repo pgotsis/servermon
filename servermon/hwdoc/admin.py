@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -19,9 +19,14 @@ Module configuring Django's admin interface for hwdoc
 '''
 
 from django.contrib import admin
-from servermon.hwdoc.models import *
+from django import forms
 from django.utils.translation import ugettext as _
+
 from keyvalue.admin import KeyValueAdmin
+from hwdoc.models import Role, Person, Email, Phone, Project, Vendor, \
+    RackModel, Ticket, Storage, Datacenter, RackPosition, Rack, \
+    RackRow, ServerManagement, EquipmentModel, Equipment
+
 
 class RoleInline(admin.TabularInline):
     '''
@@ -30,6 +35,7 @@ class RoleInline(admin.TabularInline):
 
     model = Role
     extra = 1
+
 
 class ProjectAdmin(admin.ModelAdmin):
     '''
@@ -47,6 +53,7 @@ class EmailInline(admin.TabularInline):
     model = Person.emails.through
     extra = 1
 
+
 class PhoneInline(admin.TabularInline):
     '''
     Phone Admin Manager
@@ -55,28 +62,32 @@ class PhoneInline(admin.TabularInline):
     model = Person.phones.through
     extra = 1
 
+
 class EmailAdmin(admin.ModelAdmin):
     '''
     Email Admin Manager
     '''
 
-    inlines = [ EmailInline ]
+    inlines = [EmailInline]
+
 
 class PhoneAdmin(admin.ModelAdmin):
     '''
     Phone Admin Manager
     '''
 
-    inlines = [ PhoneInline ]
+    inlines = [PhoneInline]
+
 
 class PersonAdmin(admin.ModelAdmin):
     '''
     Person Admin Manager
     '''
 
-    inlines = [ EmailInline, PhoneInline, RoleInline]
+    inlines = [EmailInline, PhoneInline, RoleInline]
     search_fields = ('name', 'surname')
     exclude = ('phones', 'emails')
+
 
 admin.site.register(Email, EmailAdmin)
 admin.site.register(Phone, PhoneAdmin)
@@ -86,6 +97,8 @@ admin.site.register(Project, ProjectAdmin)
 admin.site.register(Vendor)
 admin.site.register(RackModel)
 admin.site.register(Ticket)
+admin.site.register(Storage)
+
 
 class DatacenterAdmin(admin.ModelAdmin):
     '''
@@ -95,7 +108,9 @@ class DatacenterAdmin(admin.ModelAdmin):
     list_display = ('pk', 'name', )
     list_editable = ('name', )
 
+
 admin.site.register(Datacenter, DatacenterAdmin)
+
 
 class RackPositionInline(admin.TabularInline):
     '''
@@ -103,6 +118,7 @@ class RackPositionInline(admin.TabularInline):
     '''
 
     model = RackPosition
+
 
 class RackAdmin(admin.ModelAdmin):
     '''
@@ -139,10 +155,12 @@ class RackAdmin(admin.ModelAdmin):
 
     list_display = ('name', 'mounted_depth', 'model', rr, position)
     list_editable = ('mounted_depth', 'model')
-    inlines = [ RackPositionInline, ]
+    inlines = [RackPositionInline, ]
+
 
 admin.site.register(Rack, RackAdmin)
 admin.site.register(RackRow)
+
 
 def shutdown(modeladmin, request, queryset):
     '''
@@ -156,7 +174,9 @@ def shutdown(modeladmin, request, queryset):
             continue
         obj.servermanagement.power_off_acpi()
 
+
 shutdown.short_description = _('Shuts down an equipment')
+
 
 def startup(modeladmin, request, queryset):
     '''
@@ -170,7 +190,9 @@ def startup(modeladmin, request, queryset):
             continue
         obj.servermanagement.power_on()
 
+
 startup.short_description = _('Starts up an equipment')
+
 
 def shutdown_force(modeladmin, request, queryset):
     '''
@@ -184,6 +206,7 @@ def shutdown_force(modeladmin, request, queryset):
             continue
         obj.servermanagement.power_off()
 
+
 shutdown_force.short_description = _('Force a shutdown of an equipment')
 
 
@@ -192,9 +215,11 @@ class EquipmentModelAdmin(admin.ModelAdmin):
     Equipment Model Admin Manager
     '''
 
-    inlines = [ KeyValueAdmin, ]
+    inlines = [KeyValueAdmin, ]
+
 
 admin.site.register(EquipmentModel, EquipmentModelAdmin)
+
 
 class ServerManagementInline(admin.StackedInline):
     '''
@@ -204,6 +229,7 @@ class ServerManagementInline(admin.StackedInline):
     model = ServerManagement
     verbose_name = 'Server Management (optional)'
     verbose_name_plural = 'Servers Management (optional)'
+
 
 class EquipmentAdmin(admin.ModelAdmin):
     '''
@@ -266,55 +292,69 @@ class EquipmentAdmin(admin.ModelAdmin):
     model_u.short_description = 'Us'
 
     list_display = ('allocation', 'model', 'serial',
-            'rack', 'unit', model_u,
-            mgmt_method, mgmt_username, mgmt_password,
-            'purpose',)
-    list_display_links = ('serial',)
-    list_filter = ('model', 'rack',)
+                    'rack', 'unit', model_u,
+                    'rack_front', 'rack_interior', 'rack_back',
+                    mgmt_method, mgmt_username, mgmt_password)
+    list_display_links = ('serial', )
+    list_filter = ('model', 'rack', )
     search_fields = ['rack__name', 'unit', 'serial', 'allocation__name']
-    list_editable = ['allocation', 'rack', 'unit']
+    list_editable = ['allocation', 'rack', 'unit',
+                     'rack_front', 'rack_interior', 'rack_back']
     ordering = ('rack', 'unit',)
-    inlines = [ ServerManagementInline, KeyValueAdmin ]
-    actions = [ shutdown, startup, shutdown_force ]
+    inlines = [ServerManagementInline, KeyValueAdmin]
+    actions = [shutdown, startup, shutdown_force]
+
+    def get_form(self, request, obj=None, **kwargs):
+        def clean(self):
+            cleaned_data = super(self.__class__, self).clean()
+            rack = cleaned_data['rack']
+            unit = cleaned_data['unit']
+            storage = cleaned_data['storage']
+            if rack and not unit:
+                raise forms.ValidationError(_('You have forgotten about unit'))
+            if unit and not rack:
+                raise forms.ValidationError(_('You have forgotten about rack'))
+            if storage and rack:
+                raise forms.ValidationError(_('An equipment can not be both \
+                    mounted on a Rack and stored in Storage'))
+            return cleaned_data
+
+        form = super(EquipmentAdmin, self).get_form(request, obj, **kwargs)
+        form.clean = clean
+        return form
 
     def change_view(self, request, object_id, extra_context=None):
         '''
         Overriding view to disallow updating readonly fields
         '''
 
-        if request.user.is_superuser:
+        if request.user.has_perm('hwdoc.can_change_comment'):
+            self.readonly_fields = ('serial', 'rack', 'unit', 'purpose',
+                                    'allocation', 'model', )
+            ServerManagementInline.readonly_fields = ('hostname', 'method', 'mac')
+            ServerManagementInline.exclude = ('username', 'password',
+                                              'license', 'raid_license',)
+        if request.user.has_perm('hwdoc.change_equipment'):
             self.readonly_fields = ()
             ServerManagementInline.exclude = ()
             ServerManagementInline.readonly_fields = ()
-            return super(EquipmentAdmin, self).change_view(request,
-                    object_id, extra_context=extra_context)
-
-        if request.user.has_perm('hwdoc.can_change_comment'):
-            self.readonly_fields = ('serial', 'rack', 'unit', 'purpose',
-            'allocation', 'model', )
-            ServerManagementInline.readonly_fields = ('hostname', 'method', 'mac')
-            ServerManagementInline.exclude = ('username', 'password',
-                    'license', 'raid_license',)
-            return super(EquipmentAdmin, self).change_view(request,
-                    object_id, extra_context=extra_context)
+        return super(EquipmentAdmin, self).change_view(
+            request, object_id, extra_context=extra_context)
 
     def changelist_view(self, request, extra_context=None):
         '''
         Overriding view to disallow updating readonly fields
         '''
 
-        if request.user.is_superuser:
+        if request.user.has_perm('hwdoc.can_change_comment'):
+            self.list_editable = ['comments', ]
+            self.list_display = ('allocation', 'model', 'serial',
+                                 'rack', 'unit', 'purpose', 'comments')
+        if request.user.has_perm('hwdoc.change_equipment'):
             self.list_display = EquipmentAdmin.list_display
             self.list_editable = EquipmentAdmin.list_editable
-            return super(EquipmentAdmin, self).changelist_view(request,
-                    extra_context=extra_context)
-        if request.user.has_perm('hwdoc.can_change_comment'):
-            self.list_editable = ['comments',]
-            self.list_display = ('allocation', 'model', 'serial',
-                'rack', 'unit', 'purpose', 'comments')
-
-            return super(EquipmentAdmin, self).changelist_view(request,
-                    extra_context=extra_context)
+        return super(EquipmentAdmin, self).changelist_view(
+            request, extra_context=extra_context)
 
     def has_change_permission(self, request, obj=None):
         '''
@@ -322,8 +362,10 @@ class EquipmentAdmin(admin.ModelAdmin):
         '''
 
         if request.user.is_superuser or \
-            request.user.has_perm('hwdoc.can_change_comment'):
+            request.user.has_perm('hwdoc.can_change_comment') or \
+                request.user.has_perm('hwdoc.change_equipment'):
             return True
         return False
+
 
 admin.site.register(Equipment, EquipmentAdmin)

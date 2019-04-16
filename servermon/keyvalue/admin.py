@@ -7,9 +7,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -19,9 +19,9 @@ Module configuring Django's admin interface for keyvalue
 '''
 
 from django.contrib import admin
-from django.utils.translation import ugettext as _
 from django.contrib.contenttypes import generic
 from keyvalue.models import Key, KeyValue
+
 
 class KeyValueAdmin(generic.GenericStackedInline):
     '''
@@ -31,5 +31,6 @@ class KeyValueAdmin(generic.GenericStackedInline):
     model = KeyValue
     ct_field = 'owner_content_type'
     ct_fk_field = 'owner_object_id'
+
 
 admin.site.register(Key)

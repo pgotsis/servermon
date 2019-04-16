@@ -8,9 +8,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -19,22 +19,23 @@
 projectwide views module
 '''
 
-from servermon.puppet import functions as puppet_functions
-from servermon.hwdoc import functions as hwdoc_functions
-from servermon.projectwide import functions as projectwide_functions
-from servermon.puppet.models import Host, Fact, FactValue
-from servermon.updates.models import Package
-from servermon.compat import render
+from puppet import functions as puppet_functions
+from hwdoc import functions as hwdoc_functions
+from projectwide import functions as projectwide_functions
+from puppet.models import Host, Fact, FactValue
+from updates.models import Package
+from django.shortcuts import render
 from django.core.exceptions import FieldError
 from django.http import HttpResponse
 from django.contrib.sites.models import Site
-from django.utils import simplejson
 from django.db.models import Count
 from django.db import DatabaseError
 from django.template import TemplateSyntaxError
 from datetime import datetime, timedelta
-from settings import HOST_TIMEOUT, ADMINS
+from django.conf import settings
 import re
+import json
+
 
 def index(request):
     '''
@@ -46,7 +47,7 @@ def index(request):
     @return: HTTPResponse object rendering corresponding HTML
     '''
 
-    timeout = datetime.now() - timedelta(seconds=HOST_TIMEOUT)
+    timeout = datetime.now() - timedelta(seconds=settings.HOST_TIMEOUT)
 
     hosts = Host.objects.all()
     problemhosts = Host.objects.filter(updated_at__lte=timeout).order_by('-updated_at')
@@ -65,14 +66,17 @@ def index(request):
         'updatecount': updatecount,
         'packagecount': packagecount,
         'securitycount': securitycount,
-        })
+    })
+
 
 def search(request):
     '''
     Search view. Scans request for q (GET case) or qarea (POST case) and
     searches for corresponding instances in all subapps matching the query
-    If txt is send in a GET it will display results in txt and not in html
+    If txt is sent in a GET it will display results in txt and not in html
     format
+    If csv is sent in a GET it will display results in text format separated by comma
+    and not in html format
 
     @type   request: HTTPRequest
     @param  request: Django HTTPRequest object
@@ -82,6 +86,9 @@ def search(request):
 
     if u'txt' in request.GET:
         template = 'results.txt'
+        content_type = 'text/plain'
+    elif u'csv' in request.GET:
+        template = 'results.csv'
         content_type = 'text/plain'
     else:
         template = 'results.html'
@@ -94,26 +101,23 @@ def search(request):
     else:
         key = None
 
-    results = {
-        'hwdoc': None,
-        'puppet': None,
-        'updates': None,
-        }
+    results = {'hwdoc': None, 'puppet': None, 'updates': None, }
 
     results['puppet'] = puppet_functions.search(key).select_related()
     results['hwdoc'] = hwdoc_functions.search(key).select_related(
-                        'servermanagement', 'rack', 'model',
+                        'servermanagement', 'rack', 'model',  # noqa
                         'model__vendor', 'allocation')
 
     results['hwdoc'] = hwdoc_functions.populate_hostnames(results['hwdoc'])
 
     try:
         return render(request, template,
-                    { 'results': results, },
-                    content_type=content_type)
+                      {'results': results},
+                      content_type=content_type)
     except TemplateSyntaxError as e:
         if re.search('too many SQL variables', e.message):
             return render(request, 'error.html', content_type=content_type)
+
 
 def advancedsearch(request):
     '''
@@ -127,6 +131,7 @@ def advancedsearch(request):
 
     return render(request, 'advancedsearch.html')
 
+
 def opensearch(request):
     '''
     opensearch search view. Renders opensearch.xml
@@ -139,15 +144,16 @@ def opensearch(request):
 
     fqdn = Site.objects.get_current().domain
     try:
-        contact = ADMINS[0][0]
+        contact = settings.ADMINS[0][0]
     except IndexError:
         contact = 'none@example.com'
 
-    return render(request, 'opensearch.xml', {
-                 'opensearchbaseurl': "http://%s" % fqdn,
-                 'fqdn': fqdn,
-                 'contact': contact,
-             }, content_type = 'application/opensearchdescription+xml')
+    return render(request, 'opensearch.xml',
+                  {'opensearchbaseurl': "http://%s" % fqdn,
+                   'fqdn': fqdn,
+                   'contact': contact},
+                  content_type='application/opensearchdescription+xml')
+
 
 def suggest(request):
     '''
@@ -164,19 +170,16 @@ def suggest(request):
     else:
         key = None
 
-    results = {
-        'hwdoc': dict(),
-        'puppet': dict(),
-        }
+    results = {'hwdoc': dict(),
+               'puppet': dict(), }
 
-    k = {   'hwdoc': 'serial',
-            'puppet': 'value',
-        }
+    k = {'hwdoc': 'serial',
+         'puppet': 'value', }
 
     puppet = puppet_functions.search(key).annotate(Count('value'))
     hwdoc = hwdoc_functions.search(key).annotate(Count('serial'))
 
-    for i,v in k.items():
+    for i, v in k.items():
         try:
             results[i]['results'] = locals()[i].values_list('%s' % v, flat=True)
             results[i]['count'] = locals()[i].values_list('%s__count' % v, flat=True)
@@ -189,6 +192,6 @@ def suggest(request):
         resp[1] = resp[1] + list(results[i]['results'])
         resp[2] = resp[2] + list(results[i]['count'])
 
-    response = simplejson.dumps(resp)
+    response = json.dumps(resp)
 
-    return HttpResponse(response, mimetype = 'application/x-suggestions+json')
+    return HttpResponse(response, content_type='application/x-suggestions+json')

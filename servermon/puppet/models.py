@@ -8,9 +8,9 @@
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIMS ALL WARRANTIES WITH REGARD
 # TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+# FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
 # OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
 # USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
@@ -20,7 +20,14 @@ puppet module's functions documentation. This has been create by django
 inspecting the puppet database
 '''
 
+from django.utils.encoding import python_2_unicode_compatible
 from django.db import models
+from django.conf import settings
+
+# We check from settings whether the puppet models should be managed or not.
+# Default is false
+MANAGED_PUPPET_MODELS = getattr(settings, 'MANAGED_PUPPET_MODELS', False)
+
 
 class SourceFile(models.Model):
     '''
@@ -31,10 +38,13 @@ class SourceFile(models.Model):
     path = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'source_files'
-        managed = False
+        managed = MANAGED_PUPPET_MODELS
 
+
+@python_2_unicode_compatible
 class Fact(models.Model):
     '''
     Modeling the respective puppet concept.
@@ -43,18 +53,21 @@ class Fact(models.Model):
     name = models.CharField(max_length=255)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'fact_names'
-        ordering = [ 'name' ]
-        managed = False
+        ordering = ['name']
+        managed = MANAGED_PUPPET_MODELS
 
-    def __unicode__(self):
+    def __str__(self):
         '''
         Get a string representation of the instance
         '''
 
-        return self.name.replace('_',' ').rstrip()
+        return self.name.replace('_', ' ').rstrip()
 
+
+@python_2_unicode_compatible
 class Host(models.Model):
     '''
     Modeling the respective puppet concept.
@@ -73,10 +86,10 @@ class Host(models.Model):
 
     class Meta:
         db_table = u'hosts'
-        ordering = ['name',]
-        managed = False
+        ordering = ['name', ]
+        managed = MANAGED_PUPPET_MODELS
 
-    def __unicode__(self):
+    def __str__(self):
         '''
         Get a string representation of the instance
         '''
@@ -90,8 +103,9 @@ class Host(models.Model):
 
         try:
             return self.factvalue_set.get(fact_name__name=fact).value
-        except:
+        except FactValue.DoesNotExist:
             return default
+
 
 class Resource(models.Model):
     '''
@@ -106,9 +120,11 @@ class Resource(models.Model):
     line = models.IntegerField(null=True, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'resources'
-        managed = False
+        managed = MANAGED_PUPPET_MODELS
+
 
 class FactValue(models.Model):
     '''
@@ -120,9 +136,10 @@ class FactValue(models.Model):
     host = models.ForeignKey(Host)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'fact_values'
-        managed = False
+        managed = MANAGED_PUPPET_MODELS
 
     @property
     def name(self):
@@ -132,15 +149,13 @@ class FactValue(models.Model):
 
         return self.fact_name.name
 
-    def __unicode__(self):
+    def __str__(self):
         '''
         Get a string representation of the instance
         '''
 
-        try:
-            return "%s %s: %s" % (self.host.name, str(self.fact_name), self.value)
-        except Exception:
-            return "(unknown host) %s: %s" % (str(self.fact_name), self.value)
+        return "%s %s: %s" % (self.host.name, str(self.fact_name), self.value)
+
 
 class ParamNames(models.Model):
     '''
@@ -150,9 +165,11 @@ class ParamNames(models.Model):
     name = models.CharField(max_length=255)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'param_names'
-        managed = False
+        managed = MANAGED_PUPPET_MODELS
+
 
 class ParamValues(models.Model):
     '''
@@ -165,9 +182,11 @@ class ParamValues(models.Model):
     resource = models.ForeignKey(Resource, null=True, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'param_values'
-        managed = False
+        managed = MANAGED_PUPPET_MODELS
+
 
 class PuppetTags(models.Model):
     '''
@@ -177,9 +196,11 @@ class PuppetTags(models.Model):
     name = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'puppet_tags'
-        managed = False
+        managed = MANAGED_PUPPET_MODELS
+
 
 class ResourceTags(models.Model):
     '''
@@ -190,7 +211,7 @@ class ResourceTags(models.Model):
     puppet_tag = models.ForeignKey(PuppetTags, null=True, blank=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = u'resource_tags'
-        managed = False
-
+        managed = MANAGED_PUPPET_MODELS
